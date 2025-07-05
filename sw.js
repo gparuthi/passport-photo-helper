@@ -1,7 +1,7 @@
 // Service Worker for US Passport Photo Helper PWA
-const CACHE_NAME = 'passport-photo-v1.0.0';
-const STATIC_CACHE_NAME = 'passport-photo-static-v1.0.0';
-const DYNAMIC_CACHE_NAME = 'passport-photo-dynamic-v1.0.0';
+const CACHE_NAME = 'passport-photo-v1.1.0';
+const STATIC_CACHE_NAME = 'passport-photo-static-v1.1.0';
+const DYNAMIC_CACHE_NAME = 'passport-photo-dynamic-v1.1.0';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [

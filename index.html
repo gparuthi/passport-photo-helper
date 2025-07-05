@@ -225,6 +225,11 @@
         height: 50px;
         background: #ff3b30;
     }
+    
+    .capture-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 
     /* Flash Animation */
     .flash {
@@ -1272,21 +1277,56 @@
 
     // Download photo
     function downloadPhoto() {
-        const link = document.createElement('a');
-        link.href = capturedImageData;
-        link.download = `passport_photo_${new Date().getTime()}.jpg`;
-        link.click();
-        
-        // Show success feedback
-        const status = document.getElementById('positionStatus');
-        status.textContent = 'Photo saved!';
-        status.className = 'position-status good';
-        
-        setTimeout(() => {
-            closePreview();
-            status.textContent = 'Align your face with the guides';
+        try {
+            const link = document.createElement('a');
+            link.href = capturedImageData;
+            link.download = `passport_photo_${new Date().getTime()}.jpg`;
+            
+            // For PWA compatibility, add to document and trigger
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Show success feedback
+            const status = document.getElementById('positionStatus');
+            status.textContent = 'Photo saved!';
+            status.className = 'position-status good';
+            
+            // Auto-close preview after success
+            setTimeout(() => {
+                closePreview();
+                status.textContent = 'Align your face with the guides';
+                status.className = 'position-status adjust';
+            }, 1500);
+            
+        } catch (error) {
+            console.error('Download failed:', error);
+            
+            // Fallback: Show image in new tab for manual save
+            const newWindow = window.open();
+            newWindow.document.write(`
+                <html>
+                    <head><title>Passport Photo</title></head>
+                    <body style="margin:0;padding:20px;text-align:center;background:#f0f0f0;">
+                        <h2>Right-click and "Save Image As..."</h2>
+                        <img src="${capturedImageData}" style="max-width:100%;border:1px solid #ccc;"/>
+                        <br><br>
+                        <button onclick="window.close()" style="padding:10px 20px;font-size:16px;">Close</button>
+                    </body>
+                </html>
+            `);
+            
+            // Show fallback message
+            const status = document.getElementById('positionStatus');
+            status.textContent = 'Photo opened in new tab - right-click to save';
             status.className = 'position-status adjust';
-        }, 2000);
+            
+            setTimeout(() => {
+                closePreview();
+                status.textContent = 'Align your face with the guides';
+                status.className = 'position-status adjust';
+            }, 3000);
+        }
     }
 
     // AI Configuration
@@ -1663,6 +1703,15 @@ Respond with valid JSON only. No explanations or other text.`
                 skipBtn.style.opacity = '1';
             }
         }, 3000);
+        
+        // Auto-skip loading after 10 seconds to prevent getting stuck
+        setTimeout(() => {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay && !loadingOverlay.classList.contains('hidden')) {
+                console.log('Auto-skipping loading after timeout...');
+                skipLoading();
+            }
+        }, 10000);
     });
 
     // Skip loading (emergency bypass)
@@ -1671,7 +1720,7 @@ Respond with valid JSON only. No explanations or other text.`
         document.getElementById('loadingOverlay').classList.add('hidden');
         document.getElementById('onboardingOverlay').classList.remove('active');
         
-        // Show error message
+        // Show error message with better UX
         const container = document.getElementById('cameraContainer');
         container.innerHTML = `
             <div class="error-container">
@@ -1684,9 +1733,100 @@ Respond with valid JSON only. No explanations or other text.`
                 <button onclick="requestCameraPermission()" class="btn btn-secondary" style="margin-top: 10px;">
                     Request Camera Access
                 </button>
+                <button onclick="showDemoMode()" class="btn btn-secondary" style="margin-top: 10px;">
+                    Demo Mode (No Camera)
+                </button>
             </div>
         `;
     }
+    
+    // Demo mode for testing without camera
+    function showDemoMode() {
+        console.log('Entering demo mode...');
+        const container = document.getElementById('cameraContainer');
+        container.innerHTML = `
+            <div class="error-container">
+                <div class="error-icon">📷</div>
+                <h2>Demo Mode</h2>
+                <p>Camera not available. You can still test the app interface.</p>
+                <button onclick="simulateCapture()" class="btn btn-primary">
+                    Simulate Photo Capture
+                </button>
+                <button onclick="location.reload()" class="btn btn-secondary" style="margin-top: 10px;">
+                    Try Camera Again
+                </button>
+            </div>
+        `;
+    }
+    
+    // Simulate photo capture for demo
+    function simulateCapture() {
+        // Create a demo canvas with a simple pattern
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 600;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw a simple demo image
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, 600, 600);
+        
+        ctx.fillStyle = '#007AFF';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('DEMO PHOTO', 300, 250);
+        
+        ctx.fillStyle = '#666';
+        ctx.font = '24px Arial';
+        ctx.fillText('2×2 inch passport photo', 300, 300);
+        ctx.fillText('600×600 pixels', 300, 350);
+        
+        // Convert to blob and show preview
+        canvas.toBlob((blob) => {
+            capturedImageData = URL.createObjectURL(blob);
+            showPreview();
+        }, 'image/jpeg', 0.95);
+    }
+
+    // Enhanced UX: Keyboard and click-outside support
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            // Close any open modals with ESC key
+            const previewModal = document.getElementById('previewModal');
+            const helpOverlay = document.getElementById('helpOverlay');
+            const settingsModal = document.getElementById('settingsModal');
+            
+            if (previewModal && previewModal.classList.contains('active')) {
+                closePreview();
+            } else if (helpOverlay && helpOverlay.classList.contains('active')) {
+                hideHelp();
+            } else if (settingsModal && settingsModal.classList.contains('active')) {
+                hideSettings();
+            }
+        }
+    });
+    
+    // Click outside to close modals
+    document.addEventListener('click', (e) => {
+        const previewModal = document.getElementById('previewModal');
+        const helpOverlay = document.getElementById('helpOverlay');
+        const settingsModal = document.getElementById('settingsModal');
+        
+        // Close preview modal if clicking outside
+        if (previewModal && previewModal.classList.contains('active') && e.target === previewModal) {
+            closePreview();
+        }
+        
+        // Close help overlay if clicking outside
+        if (helpOverlay && helpOverlay.classList.contains('active') && e.target === helpOverlay) {
+            hideHelp();
+        }
+        
+        // Close settings modal if clicking outside
+        if (settingsModal && settingsModal.classList.contains('active') && e.target === settingsModal) {
+            hideSettings();
+        }
+    });
 
     // Debug: Log any errors
     window.addEventListener('error', (e) => {
