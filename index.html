@@ -511,9 +511,12 @@
     }
 
     .settings-content {
-        padding: 80px 20px 40px;
+        padding: 80px 20px;
+        padding-bottom: max(80px, env(safe-area-inset-bottom) + 40px);
         max-width: 500px;
         margin: 0 auto;
+        min-height: 100vh;
+        box-sizing: border-box;
     }
 
     .settings-close {
@@ -532,13 +535,39 @@
     }
 
     .settings-section {
-        margin-bottom: 30px;
+        margin-bottom: 25px;
     }
 
     .settings-section h3 {
-        font-size: 20px;
-        margin-bottom: 15px;
+        font-size: 18px;
+        margin-bottom: 12px;
         color: #007AFF;
+    }
+    
+    /* Compact layout for mobile */
+    @media (max-height: 700px) {
+        .settings-content {
+            padding-top: 60px;
+        }
+        
+        .settings-section {
+            margin-bottom: 20px;
+        }
+        
+        .settings-section h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .settings-input {
+            padding: 10px 14px;
+            font-size: 15px;
+        }
+        
+        .settings-hint {
+            font-size: 13px;
+            margin-top: 6px;
+        }
     }
 
     .settings-label {
@@ -1084,8 +1113,8 @@
         
         // Draw eye level guide (main guide)
         ctx.strokeStyle = '#4CD964';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([20, 10]);
+        ctx.lineWidth = 5;
+        ctx.setLineDash([30, 15]);
         ctx.beginPath();
         ctx.moveTo(cropX + 20, eyeLevelY);
         ctx.lineTo(cropX + cropSize - 20, eyeLevelY);
@@ -1105,14 +1134,14 @@
         
         // Eye level label with background
         const eyeLabel = 'ALIGN EYES HERE';
-        ctx.font = 'bold 18px Arial';
+        ctx.font = 'bold 24px Arial';
         const eyeMetrics = ctx.measureText(eyeLabel);
         const eyeLabelX = cropX + (cropSize - eyeMetrics.width) / 2;
-        const eyeLabelY = eyeLevelY - 25;
+        const eyeLabelY = eyeLevelY - 30;
         
         // Label background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(eyeLabelX - 10, eyeLabelY - 22, eyeMetrics.width + 20, 30);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(eyeLabelX - 15, eyeLabelY - 28, eyeMetrics.width + 30, 40);
         
         // Label text
         ctx.fillStyle = '#4CD964';
