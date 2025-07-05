@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>US Passport Photo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        /* Loading State */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Header - Simplified */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+            z-index: 10;
+            text-align: center;
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Camera Container */
+        .camera-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            -webkit-transform: scaleX(-1);
+            transform: scaleX(-1);
+        }
+
+        /* Canvas Overlay */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Positioning Status */
+        .position-status {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            z-index: 15;
+        }
+
+        .position-status.good {
+            background: rgba(76, 217, 100, 0.9);
+            color: #000;
+        }
+
+        .position-status.adjust {
+            background: rgba(255, 204, 0, 0.9);
+            color: #000;
+        }
+
+        /* Controls */
+        .controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 40px 20px;
+            padding-bottom: max(40px, env(safe-area-inset-bottom));
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+        }
+
+        /* Help Button */
+        .help-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .help-btn:active {
+            transform: scale(0.9);
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Capture Button */
+        .capture-btn {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            border: 5px solid #fff;
+            background: rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .capture-btn:active {
+            transform: scale(0.9);
+        }
+
+        .capture-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: #fff;
+            transition: all 0.2s;
+        }
+
+        .capture-btn.capturing::after {
+            width: 50px;
+            height: 50px;
+            background: #ff3b30;
+        }
+
+        /* Flash Animation */
+        .flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            z-index: 150;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .flash.active {
+            animation: flashAnimation 0.5s ease-out;
+        }
+
+        @keyframes flashAnimation {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Help Overlay */
+        .help-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            z-index: 100;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .help-overlay.active {
+            display: block;
+        }
+
+        .help-content {
+            padding: 80px 20px 40px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .help-close {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 101;
+        }
+
+        .help-section {
+            margin-bottom: 40px;
+        }
+
+        .help-section h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #007AFF;
+        }
+
+        .help-section p {
+            font-size: 18px;
+            line-height: 1.6;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .help-visual {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .sample-position {
+            width: 120px;
+            height: 150px;
+            margin: 0 auto 20px;
+            border: 3px dashed rgba(76, 217, 100, 0.5);
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .sample-head {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+        }
+
+        /* Preview Modal */
+        .preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            display: none;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .preview-modal.active {
+            display: flex;
+        }
+
+        .preview-header {
+            padding: 20px;
+            text-align: center;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .preview-header h3 {
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .preview-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .preview-content img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .preview-actions {
+            padding: 30px 20px;
+            padding-bottom: max(30px, env(safe-area-inset-bottom));
+            display: flex;
+            gap: 15px;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .btn {
+            flex: 1;
+            padding: 18px;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-primary {
+            background: #007AFF;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Error State */
+        .error-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+        }
+
+        .error-container h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #ff3b30;
+        }
+
+        .error-container p {
+            font-size: 18px;
+            line-height: 1.5;
+            opacity: 0.8;
+            margin-bottom: 30px;
+            max-width: 400px;
+        }
+
+        /* First Time Overlay */
+        .onboarding-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 190;
+            padding: 20px;
+        }
+
+        .onboarding-overlay.active {
+            display: flex;
+        }
+
+        .onboarding-content {
+            background: rgba(255,255,255,0.1);
+            border-radius: 30px;
+            padding: 40px 30px;
+            max-width: 380px;
+            text-align: center;
+            backdrop-filter: blur(20px);
+        }
+
+        .onboarding-content h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .onboarding-content p {
+            font-size: 18px;
+            line-height: 1.5;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .onboarding-visual {
+            margin: 30px 0;
+        }
+
+        /* Accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p style="font-size: 18px; opacity: 0.8;">Initializing Camera...</p>
+        <button onclick="skipLoading()" class="btn btn-secondary" style="margin-top: 30px; opacity: 0; transition: opacity 0.5s;" id="skipLoadingBtn">
+            Skip
+        </button>
+    </div>
+
+    <!-- Flash Effect -->
+    <div class="flash" id="flash"></div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-title">US Passport Photo</div>
+        <div id="aiStatus" style="font-size: 12px; opacity: 0.6; margin-top: 5px;"></div>
+    </div>
+
+    <!-- Position Status -->
+    <div class="position-status adjust" id="positionStatus">
+        Align your face with the guides
+    </div>
+
+    <!-- Camera Container -->
+    <div class="camera-container" id="cameraContainer">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="overlay"></canvas>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button class="help-btn" onclick="showHelp()" aria-label="Help">?</button>
+        <button class="capture-btn" id="captureBtn" onclick="capturePhoto()" aria-label="Capture photo"></button>
+        <div style="width: 50px;"></div> <!-- Spacer for balance -->
+    </div>
+
+    <!-- Help Overlay -->
+    <div class="help-overlay" id="helpOverlay">
+        <button class="help-close" onclick="hideHelp()" aria-label="Close help">×</button>
+        <div class="help-content">
+            <div class="help-section">
+                <h3>📷 How to Take Your Photo</h3>
+                <div class="help-visual">
+                    <div class="sample-position">
+                        <div class="sample-head"></div>
+                    </div>
+                    <p style="font-size: 16px; opacity: 0.7;">Position your head within the frame</p>
+                </div>
+                <p>1. <strong>Center your face</strong> in the square frame</p>
+                <p>2. <strong>Align your eyes</strong> with the middle line</p>
+                <p>3. <strong>Keep your head straight</strong> and look directly at camera</p>
+                <p>4. The AI will analyze your position and provide real-time feedback</p>
+                <p>5. Status turns <strong style="color: #4CD964;">green</strong> when photo is passport-compliant</p>
+            </div>
+
+            <div class="help-section">
+                <h3>✅ Passport Requirements</h3>
+                <p>• <strong>Neutral expression</strong> (no smiling)</p>
+                <p>• <strong>Both eyes open</strong> and visible</p>
+                <p>• <strong>No glasses</strong> if possible</p>
+                <p>• <strong>Plain background</strong> (white or off-white)</p>
+                <p>• <strong>No shadows</strong> on face or background</p>
+                <p>• <strong>Good lighting</strong> - face evenly lit</p>
+            </div>
+
+            <div class="help-section">
+                <h3>💡 Tips for Best Results</h3>
+                <p>• Use <strong>natural lighting</strong> or face a window</p>
+                <p>• Keep phone at <strong>eye level</strong></p>
+                <p>• Stand about <strong>arm's length</strong> from camera</p>
+                <p>• Photo will be cropped to <strong>2×2 inches</strong></p>
+            </div>
+
+            <div class="help-section">
+                <h3>✨ AI-Powered Features</h3>
+                <p>• <strong>Real-time analysis</strong> every 3 seconds</p>
+                <p>• <strong>Instant feedback</strong> on photo compliance</p>
+                <p>• <strong>Smart suggestions</strong> for improvements</p>
+                <p>• <strong>Background check</strong> for plain white requirement</p>
+                <p>• <strong>Expression detection</strong> for neutral face</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div class="preview-modal" id="previewModal">
+        <div class="preview-header">
+            <h3>Your Passport Photo</h3>
+            <p style="opacity: 0.7; margin-top: 5px;">2×2 inches (600×600px)</p>
+        </div>
+        <div class="preview-content">
+            <img id="previewImage" src="" alt="Captured passport photo">
+        </div>
+        <div class="preview-actions">
+            <button class="btn btn-secondary" onclick="closePreview()">Retake</button>
+            <button class="btn btn-primary" onclick="downloadPhoto()">Save Photo</button>
+        </div>
+    </div>
+
+    <!-- First Time Onboarding -->
+    <div class="onboarding-overlay" id="onboardingOverlay">
+        <div class="onboarding-content">
+            <h2>👋 Welcome!</h2>
+            <p>Let's take your US passport photo in seconds with AI assistance.</p>
+            <div class="onboarding-visual">
+                <div class="sample-position" style="margin: 0 auto;">
+                    <div class="sample-head"></div>
+                </div>
+            </div>
+            <p>Position your face within the guides and our AI will help you capture a perfect 2×2 inch passport photo.</p>
+            <button class="btn btn-primary" style="width: 100%;" onclick="startApp()">Get Started</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('overlay');
+        let ctx = canvas.getContext('2d');
+        let stream = null;
+        let capturedImageData = null;
+        let isFirstTime = !localStorage.getItem('passportPhotoAppUsed');
+
+        // US Passport photo specifications
+        const PASSPORT_GUIDES = {
+            headTop: 15,      // Top of head position
+            eyeLevel: 35,     // Eye level position
+            chinLine: 60,     // Chin position
+            opacity: 0.8
+        };
+
+        // Passport photo dimensions (2x2 inches at 300 DPI)
+        const PASSPORT_SIZE = 600; // pixels
+
+        // Prevent mobile browser behaviors
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.closest('.help-overlay')) return;
+            e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+
+        // Check first time and initialize
+        function checkFirstTime() {
+            console.log('Checking first time user...');
+            if (isFirstTime) {
+                console.log('First time user - showing onboarding');
+                document.getElementById('onboardingOverlay').classList.add('active');
+                // Still initialize camera in background
+                initCamera();
+            } else {
+                console.log('Returning user - initializing camera directly');
+                initCamera();
+            }
+        }
+
+        // Start app after onboarding
+        function startApp() {
+            console.log('Starting app after onboarding...');
+            localStorage.setItem('passportPhotoAppUsed', 'true');
+            document.getElementById('onboardingOverlay').classList.remove('active');
+            // Camera should already be initialized
+            
+            // If loading is still showing, hide it
+            setTimeout(() => {
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                if (!loadingOverlay.classList.contains('hidden')) {
+                    loadingOverlay.classList.add('hidden');
+                }
+            }, 500);
+        }
+
+        // Initialize camera
+        async function initCamera() {
+            console.log('Initializing camera...');
+            
+            try {
+                // Check if we're in a secure context
+                if (!window.isSecureContext) {
+                    throw new Error('Camera requires HTTPS or localhost. Please use a local server or upload to a web host.');
+                }
+
+                // Check if getUserMedia is available
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Camera API not supported in this browser.');
+                }
+
+                console.log('Requesting camera permissions...');
+
+                // Get the right camera based on device
+                const constraints = { 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1920 },
+                        aspectRatio: { ideal: 1 }
+                    } 
+                };
+
+                // Try to get user media with ideal constraints
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    console.log('Camera access granted with ideal constraints');
+                } catch (err) {
+                    console.log('Ideal constraints failed, trying basic constraints...');
+                    // Fallback to basic constraints if ideal ones fail
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ 
+                            video: { facingMode: 'user' } 
+                        });
+                        console.log('Camera access granted with basic constraints');
+                    } catch (fallbackErr) {
+                        console.log('Basic constraints also failed, trying any video...');
+                        // Last resort - try any video input
+                        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    }
+                }
+
+                console.log('Setting video stream...');
+                video.srcObject = stream;
+                
+                // Ensure video plays
+                video.play().catch(err => {
+                    console.error('Video play failed:', err);
+                });
+                
+                // Handle orientation changes
+                handleOrientationChange();
+                window.addEventListener('orientationchange', handleOrientationChange);
+                window.addEventListener('resize', handleOrientationChange);
+                
+                // Multiple event listeners for reliability
+                let initialized = false;
+                
+                const initializeVideo = () => {
+                    if (initialized) return;
+                    initialized = true;
+                    
+                    console.log('Video initialized');
+                    resizeCanvas();
+                    drawOverlay();
+                    // Hide loading overlay
+                    setTimeout(() => {
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                    }, 500);
+                };
+                
+                // Wait for various video events
+                video.addEventListener('loadedmetadata', initializeVideo);
+                video.addEventListener('loadeddata', initializeVideo);
+                video.addEventListener('canplay', initializeVideo);
+                
+                // Also check if video is already ready
+                if (video.readyState >= 2) {
+                    initializeVideo();
+                }
+
+                // Add timeout in case events don't fire
+                setTimeout(() => {
+                    if (!initialized) {
+                        console.warn('Video initialization timeout - forcing initialization');
+                        initializeVideo();
+                    }
+                }, 3000);
+
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                showErrorMessage(err);
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        // Handle device orientation
+        function handleOrientationChange() {
+            setTimeout(() => {
+                if (video.srcObject) {
+                    resizeCanvas();
+                }
+            }, 500);
+        }
+
+        // Show detailed error message
+        function showErrorMessage(err) {
+            let message = '';
+            let solution = '';
+            let showPermissionButton = false;
+
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                message = 'Camera permission denied';
+                solution = 'Please allow camera access to use this app.';
+                showPermissionButton = true;
+            } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                message = 'No camera detected';
+                solution = 'Please connect a camera to continue.';
+            } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                message = 'Camera is in use';
+                solution = 'Please close other apps using the camera and try again.';
+            } else if (err.message && err.message.includes('secure context')) {
+                message = 'Secure connection required';
+                solution = 'Please use HTTPS or a local server:\n\n• Python: python -m http.server 8000\n• VS Code: Live Server extension\n• Node.js: npx http-server';
+            } else {
+                message = 'Camera unavailable';
+                solution = err.message || 'Please check your camera and try again.';
+            }
+
+            // Display error in the camera container
+            const container = document.getElementById('cameraContainer');
+            container.innerHTML = `
+                <div class="error-container">
+                    <div class="error-icon">📵</div>
+                    <h2>${message}</h2>
+                    <p style="white-space: pre-line;">${solution}</p>
+                    ${showPermissionButton ? `
+                        <button onclick="requestCameraPermission()" class="btn btn-primary" style="margin-bottom: 15px;">
+                            Request Camera Access
+                        </button>
+                    ` : ''}
+                    <button onclick="location.reload()" class="btn btn-secondary">
+                        Refresh Page
+                    </button>
+                </div>
+            `;
+        }
+
+        // Manually request camera permission
+        async function requestCameraPermission() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.classList.remove('hidden');
+            
+            try {
+                // This will trigger the permission prompt
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                // If successful, reload to initialize properly
+                stream.getTracks().forEach(track => track.stop());
+                location.reload();
+            } catch (err) {
+                console.error('Permission request failed:', err);
+                loadingOverlay.classList.add('hidden');
+                alert('Camera permission was denied. Please enable camera access in your browser settings:\n\n' +
+                      '• Chrome/Edge: Click the camera icon in the address bar\n' +
+                      '• Safari: Settings > Safari > Camera\n' +
+                      '• Firefox: Click the lock icon > Permissions');
+            }
+        }
+
+        // Resize canvas to match video
+        function resizeCanvas() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Match canvas display size to video
+            const rect = video.getBoundingClientRect();
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+        }
+
+        // Draw overlay guides for US passport photos
+        function drawOverlay() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // Calculate the square crop area (centered)
+            const cropSize = Math.min(width, height) * 0.7;
+            const cropX = (width - cropSize) / 2;
+            const cropY = (height - cropSize) / 2;
+            
+            // Darken area outside crop
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Clear the crop area
+            ctx.clearRect(cropX, cropY, cropSize, cropSize);
+            
+            // Draw crop frame with corners
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            const cornerLength = 30;
+            
+            // Top-left corner
+            ctx.beginPath();
+            ctx.moveTo(cropX, cropY + cornerLength);
+            ctx.lineTo(cropX, cropY);
+            ctx.lineTo(cropX + cornerLength, cropY);
+            ctx.stroke();
+            
+            // Top-right corner
+            ctx.beginPath();
+            ctx.moveTo(cropX + cropSize - cornerLength, cropY);
+            ctx.lineTo(cropX + cropSize, cropY);
+            ctx.lineTo(cropX + cropSize, cropY + cornerLength);
+            ctx.stroke();
+            
+            // Bottom-left corner
+            ctx.beginPath();
+            ctx.moveTo(cropX, cropY + cropSize - cornerLength);
+            ctx.lineTo(cropX, cropY + cropSize);
+            ctx.lineTo(cropX + cornerLength, cropY + cropSize);
+            ctx.stroke();
+            
+            // Bottom-right corner
+            ctx.beginPath();
+            ctx.moveTo(cropX + cropSize - cornerLength, cropY + cropSize);
+            ctx.lineTo(cropX + cropSize, cropY + cropSize);
+            ctx.lineTo(cropX + cropSize, cropY + cropSize - cornerLength);
+            ctx.stroke();
+            
+            // Calculate guide positions within crop
+            const eyeLevelY = cropY + (cropSize * (PASSPORT_GUIDES.eyeLevel / 100));
+            
+            // Draw eye level guide (main guide)
+            ctx.strokeStyle = '#4CD964';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([20, 10]);
+            ctx.beginPath();
+            ctx.moveTo(cropX + 20, eyeLevelY);
+            ctx.lineTo(cropX + cropSize - 20, eyeLevelY);
+            ctx.stroke();
+            
+            // Draw center line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(cropX + cropSize / 2, cropY + 20);
+            ctx.lineTo(cropX + cropSize / 2, cropY + cropSize - 20);
+            ctx.stroke();
+            
+            // Draw floating labels
+            ctx.setLineDash([]);
+            
+            // Eye level label with background
+            const eyeLabel = 'ALIGN EYES HERE';
+            ctx.font = 'bold 18px Arial';
+            const eyeMetrics = ctx.measureText(eyeLabel);
+            const eyeLabelX = cropX + (cropSize - eyeMetrics.width) / 2;
+            const eyeLabelY = eyeLevelY - 25;
+            
+            // Label background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(eyeLabelX - 10, eyeLabelY - 22, eyeMetrics.width + 20, 30);
+            
+            // Label text
+            ctx.fillStyle = '#4CD964';
+            ctx.fillText(eyeLabel, eyeLabelX, eyeLabelY);
+            
+            // Photo size indicator
+            ctx.font = '16px Arial';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            const sizeLabel = '2×2 inch';
+            const sizeMetrics = ctx.measureText(sizeLabel);
+            ctx.fillText(sizeLabel, cropX + (cropSize - sizeMetrics.width) / 2, cropY - 10);
+            
+            // Start AI monitoring if available
+            if (window.claude && window.claude.complete) {
+                startAIMonitoring();
+            }
+            
+            requestAnimationFrame(drawOverlay);
+        }
+
+        // Show help
+        function showHelp() {
+            document.getElementById('helpOverlay').classList.add('active');
+        }
+
+        // Hide help
+        function hideHelp() {
+            document.getElementById('helpOverlay').classList.remove('active');
+        }
+
+        // Capture photo with animation
+        function capturePhoto() {
+            // Visual feedback
+            const captureBtn = document.getElementById('captureBtn');
+            captureBtn.classList.add('capturing');
+            
+            // Flash effect
+            const flash = document.getElementById('flash');
+            flash.classList.add('active');
+            
+            // Haptic feedback if available
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+            
+            setTimeout(() => {
+                // Create a square capture area for passport photo
+                const videoWidth = video.videoWidth;
+                const videoHeight = video.videoHeight;
+                
+                // Calculate the square crop area (centered)
+                const size = Math.min(videoWidth, videoHeight) * 0.7;
+                const startX = (videoWidth - size) / 2;
+                const startY = (videoHeight - size) / 2;
+                
+                // Create canvas for cropped passport photo
+                const captureCanvas = document.createElement('canvas');
+                captureCanvas.width = PASSPORT_SIZE;
+                captureCanvas.height = PASSPORT_SIZE;
+                const captureCtx = captureCanvas.getContext('2d');
+                
+                // Fill with white background (passport requirement)
+                captureCtx.fillStyle = '#FFFFFF';
+                captureCtx.fillRect(0, 0, PASSPORT_SIZE, PASSPORT_SIZE);
+                
+                // Draw the cropped and scaled video frame (mirror back for capture)
+                captureCtx.save();
+                captureCtx.scale(-1, 1);
+                captureCtx.drawImage(
+                    video, 
+                    startX, startY, size, size,  // Source rectangle
+                    -PASSPORT_SIZE, 0, PASSPORT_SIZE, PASSPORT_SIZE  // Destination (flipped)
+                );
+                captureCtx.restore();
+                
+                // Convert to blob with high quality
+                captureCanvas.toBlob((blob) => {
+                    capturedImageData = URL.createObjectURL(blob);
+                    showPreview();
+                    
+                    // Reset button state
+                    captureBtn.classList.remove('capturing');
+                    flash.classList.remove('active');
+                    
+                    // AI analysis if available
+                    if (window.claude && window.claude.complete) {
+                        analyzePhotoWithAI(blob);
+                    }
+                }, 'image/jpeg', 0.95);
+            }, 200);
+        }
+
+        // Show preview modal
+        function showPreview() {
+            document.getElementById('previewImage').src = capturedImageData;
+            document.getElementById('previewModal').classList.add('active');
+        }
+
+        // Close preview
+        function closePreview() {
+            document.getElementById('previewModal').classList.remove('active');
+            if (capturedImageData) {
+                URL.revokeObjectURL(capturedImageData);
+                capturedImageData = null;
+            }
+        }
+
+        // Download photo
+        function downloadPhoto() {
+            const link = document.createElement('a');
+            link.href = capturedImageData;
+            link.download = `passport_photo_${new Date().getTime()}.jpg`;
+            link.click();
+            
+            // Show success feedback
+            const status = document.getElementById('positionStatus');
+            status.textContent = 'Photo saved!';
+            status.className = 'position-status good';
+            
+            setTimeout(() => {
+                closePreview();
+                status.textContent = 'Align your face with the guides';
+                status.className = 'position-status adjust';
+            }, 2000);
+        }
+
+        // AI Integration
+        let isAnalyzing = false;
+        let lastAnalysisTime = 0;
+        const ANALYSIS_INTERVAL = 3000; // Analyze every 3 seconds
+
+        async function analyzePhotoWithAI(photoBlob, isLiveAnalysis = false) {
+            if (isAnalyzing) return;
+            if (!window.claude || !window.claude.complete) return;
+            
+            isAnalyzing = true;
+
+            try {
+                // Convert blob to base64
+                const base64 = await blobToBase64(photoBlob);
+                
+                // Show analyzing status only for captured photos
+                if (!isLiveAnalysis) {
+                    const status = document.getElementById('positionStatus');
+                    status.textContent = 'AI analyzing photo...';
+                    status.className = 'position-status adjust';
+                }
+
+                // Use Claude AI to analyze the photo
+                const prompt = `You are a passport photo analyzer. Analyze this photo and provide a brief, practical assessment.
+
+                Check for:
+                1. Face position and centering
+                2. Background (must be plain white/off-white)
+                3. Expression (must be neutral)
+                4. Eyes (both visible, no glare on glasses)
+                5. Lighting (even, no shadows)
+                6. Overall passport photo compliance
+
+                Respond with ONLY a valid JSON object in this exact format:
+                {
+                    "isCompliant": true/false,
+                    "status": "Good to go!" or "Needs adjustment",
+                    "mainIssue": "Brief main issue or 'None' if compliant",
+                    "quickTips": ["Tip 1", "Tip 2"] (max 2 short tips, empty array if compliant)
+                }
+
+                DO NOT include any text outside the JSON object. Keep responses very brief and actionable.`;
+
+                const response = await window.claude.complete(prompt + '\n\nAnalyze this passport photo:\n' + base64);
+                
+                try {
+                    // Clean response and parse
+                    const cleanResponse = response.trim();
+                    const analysis = JSON.parse(cleanResponse);
+                    displayAIFeedback(analysis, isLiveAnalysis);
+                } catch (parseError) {
+                    console.error('Failed to parse AI response:', parseError, 'Response:', response);
+                    if (!isLiveAnalysis) {
+                        const status = document.getElementById('positionStatus');
+                        status.textContent = 'Ready to capture';
+                        status.className = 'position-status adjust';
+                    }
+                }
+
+            } catch (error) {
+                console.error('AI analysis error:', error);
+                if (!isLiveAnalysis) {
+                    const status = document.getElementById('positionStatus');
+                    status.textContent = 'Ready to capture';
+                    status.className = 'position-status adjust';
+                }
+            } finally {
+                isAnalyzing = false;
+            }
+        }
+
+        // Convert blob to base64
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // Display AI feedback
+        function displayAIFeedback(analysis, isLiveAnalysis = false) {
+            const status = document.getElementById('positionStatus');
+            const feedbackEl = document.getElementById('aiFeedback');
+            const feedbackText = document.getElementById('aiFeedbackText');
+
+            // Update status indicator
+            status.textContent = analysis.status;
+            status.className = analysis.isCompliant ? 'position-status good' : 'position-status adjust';
+
+            // Show detailed feedback if there are issues
+            if (!analysis.isCompliant && analysis.quickTips && analysis.quickTips.length > 0) {
+                feedbackText.innerHTML = `
+                    <strong>${analysis.mainIssue}</strong><br>
+                    ${analysis.quickTips.map(tip => `• ${tip}`).join('<br>')}
+                `;
+                feedbackEl.classList.add('active');
+
+                // Hide after 5 seconds for live analysis, longer for captured photos
+                setTimeout(() => {
+                    feedbackEl.classList.remove('active');
+                }, isLiveAnalysis ? 5000 : 8000);
+            } else if (analysis.isCompliant && !isLiveAnalysis) {
+                // Show success for captured photos
+                feedbackText.innerHTML = `<strong>✅ Perfect passport photo!</strong>`;
+                feedbackEl.classList.add('active');
+                setTimeout(() => {
+                    feedbackEl.classList.remove('active');
+                }, 3000);
+            }
+        }
+
+        // Continuous AI monitoring
+        async function startAIMonitoring() {
+            if (!video.srcObject) return;
+            if (!window.claude || !window.claude.complete) return;
+
+            const now = Date.now();
+            if (now - lastAnalysisTime < ANALYSIS_INTERVAL) {
+                return; // Don't analyze too frequently
+            }
+
+            lastAnalysisTime = now;
+
+            // Capture current frame
+            const tempCanvas = document.createElement('canvas');
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
+            
+            if (!videoWidth || !videoHeight) return;
+            
+            // Use same crop logic as capture
+            const size = Math.min(videoWidth, videoHeight) * 0.7;
+            const startX = (videoWidth - size) / 2;
+            const startY = (videoHeight - size) / 2;
+            
+            tempCanvas.width = 300; // Smaller size for analysis
+            tempCanvas.height = 300;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Fill with white background
+            tempCtx.fillStyle = '#FFFFFF';
+            tempCtx.fillRect(0, 0, 300, 300);
+            
+            // Draw cropped frame
+            tempCtx.save();
+            tempCtx.scale(-1, 1);
+            tempCtx.drawImage(
+                video, 
+                startX, startY, size, size,
+                -300, 0, 300, 300
+            );
+            tempCtx.restore();
+            
+            // Convert to blob and analyze
+            tempCanvas.toBlob((blob) => {
+                if (blob) {
+                    analyzePhotoWithAI(blob, true);
+                }
+            }, 'image/jpeg', 0.8);
+        }
+
+        // Initialize app
+        window.addEventListener('load', () => {
+            console.log('App loaded, checking first time...');
+            
+            // Check AI availability
+            const aiStatus = document.getElementById('aiStatus');
+            if (window.claude && window.claude.complete) {
+                aiStatus.textContent = '✨ AI-Powered Analysis Active';
+                console.log('AI features available');
+            } else {
+                aiStatus.textContent = 'Basic Mode (No AI)';
+                console.log('AI features not available');
+            }
+            
+            checkFirstTime();
+            
+            // Show skip button after 3 seconds if still loading
+            setTimeout(() => {
+                const skipBtn = document.getElementById('skipLoadingBtn');
+                if (skipBtn && !document.getElementById('loadingOverlay').classList.contains('hidden')) {
+                    skipBtn.style.opacity = '1';
+                }
+            }, 3000);
+        });
+
+        // Skip loading (emergency bypass)
+        function skipLoading() {
+            console.log('Skipping loading screen...');
+            document.getElementById('loadingOverlay').classList.add('hidden');
+            document.getElementById('onboardingOverlay').classList.remove('active');
+            
+            // Show error message
+            const container = document.getElementById('cameraContainer');
+            container.innerHTML = `
+                <div class="error-container">
+                    <div class="error-icon">⚠️</div>
+                    <h2>Camera initialization skipped</h2>
+                    <p>The camera may not be working properly.</p>
+                    <button onclick="location.reload()" class="btn btn-primary">
+                        Try Again
+                    </button>
+                    <button onclick="requestCameraPermission()" class="btn btn-secondary" style="margin-top: 10px;">
+                        Request Camera Access
+                    </button>
+                </div>
+            `;
+        }
+
+        // Debug: Log any errors
+        window.addEventListener('error', (e) => {
+            console.error('Global error:', e.error);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('Unhandled promise rejection:', e.reason);
+        });
+    </script>
+</body>
+</html>
