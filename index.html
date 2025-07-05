@@ -5,6 +5,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>US Passport Photo</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="AI-powered passport photo capture tool that helps you take perfect 2x2 inch US passport photos with real-time guidance and compliance checking.">
+    <meta name="theme-color" content="#007AFF">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Passport Photo">
+    <meta name="msapplication-TileColor" content="#007AFF">
+    <meta name="msapplication-config" content="browserconfig.xml">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
+    
+    <!-- Standard Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
+    <link rel="shortcut icon" href="icons/icon-192x192.png">
     <style>
         * {
             margin: 0;
@@ -1674,6 +1695,136 @@ Respond with valid JSON only. No explanations or other text.`
 
     window.addEventListener('unhandledrejection', (e) => {
         console.error('Unhandled promise rejection:', e.reason);
+    });
+
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', async () => {
+            try {
+                console.log('Registering service worker...');
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                console.log('Service Worker registered successfully:', registration);
+                
+                // Handle service worker updates
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // New service worker is available
+                                console.log('New service worker available');
+                                showUpdateNotification();
+                            }
+                        });
+                    }
+                });
+                
+                // Listen for service worker messages
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
+                        showUpdateNotification();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Service Worker registration failed:', error);
+            }
+        });
+    }
+
+    // Show update notification
+    function showUpdateNotification() {
+        const status = document.getElementById('positionStatus');
+        if (status) {
+            status.textContent = 'App update available - refresh to update';
+            status.className = 'position-status adjust';
+            status.style.cursor = 'pointer';
+            status.onclick = () => {
+                window.location.reload();
+            };
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                status.textContent = 'Align your face with the guides';
+                status.className = 'position-status adjust';
+                status.style.cursor = 'default';
+                status.onclick = null;
+            }, 10000);
+        }
+    }
+
+    // PWA Install Prompt
+    let deferredPrompt;
+    
+    window.addEventListener('beforeinstallprompt', (e) => {
+        console.log('PWA install prompt available');
+        // Prevent Chrome 67 and earlier from automatically showing the prompt
+        e.preventDefault();
+        // Stash the event so it can be triggered later
+        deferredPrompt = e;
+        
+        // Show custom install button after 30 seconds
+        setTimeout(() => {
+            showInstallPrompt();
+        }, 30000);
+    });
+
+    function showInstallPrompt() {
+        if (!deferredPrompt) return;
+        
+        const status = document.getElementById('positionStatus');
+        if (status) {
+            status.textContent = '📱 Tap to install app';
+            status.className = 'position-status good';
+            status.style.cursor = 'pointer';
+            status.onclick = async () => {
+                try {
+                    // Show the install prompt
+                    deferredPrompt.prompt();
+                    // Wait for the user to respond to the prompt
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`User response to install prompt: ${outcome}`);
+                    
+                    // Reset the deferred prompt variable
+                    deferredPrompt = null;
+                    
+                    // Reset status
+                    status.textContent = 'Align your face with the guides';
+                    status.className = 'position-status adjust';
+                    status.style.cursor = 'default';
+                    status.onclick = null;
+                    
+                } catch (error) {
+                    console.error('Install prompt failed:', error);
+                }
+            };
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                if (status.textContent.includes('install')) {
+                    status.textContent = 'Align your face with the guides';
+                    status.className = 'position-status adjust';
+                    status.style.cursor = 'default';
+                    status.onclick = null;
+                }
+            }, 10000);
+        }
+    }
+
+    // PWA App Installed
+    window.addEventListener('appinstalled', (evt) => {
+        console.log('PWA was installed');
+        // Show success message
+        const status = document.getElementById('positionStatus');
+        if (status) {
+            status.textContent = '✅ App installed successfully!';
+            status.className = 'position-status good';
+            
+            setTimeout(() => {
+                status.textContent = 'Align your face with the guides';
+                status.className = 'position-status adjust';
+            }, 3000);
+        }
     });
 </script>
 </body>
