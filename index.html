@@ -1313,6 +1313,11 @@
         statusText.textContent = 'Testing connection...';
         
         try {
+            // Use different token parameter based on model
+            const tokenParam = currentModel.includes('o3') || currentModel.includes('o1') 
+                ? { max_completion_tokens: 5 }
+                : { max_tokens: 5 };
+            
             const response = await fetch(`${currentEndpoint}/chat/completions`, {
                 method: 'POST',
                 headers: {
@@ -1322,7 +1327,7 @@
                 body: JSON.stringify({
                     model: currentModel,
                     messages: [{role: 'user', content: 'test'}],
-                    max_tokens: 5
+                    ...tokenParam
                 })
             });
             
@@ -1412,18 +1417,31 @@ Respond with valid JSON only. No explanations or other text.`
                 }
             ];
 
+            // Use different parameters based on model
+            const isO3OrO1 = aiConfig.model.includes('o3') || aiConfig.model.includes('o1');
+            const tokenParam = isO3OrO1 
+                ? { max_completion_tokens: 3000 }
+                : { max_tokens: 3000 };
+            
+            // Build request body - o3/o1 models don't support temperature
+            const requestBody = {
+                model: aiConfig.model,
+                messages: messages,
+                ...tokenParam
+            };
+            
+            // Only add temperature for models that support it
+            if (!isO3OrO1) {
+                requestBody.temperature = 0.1;
+            }
+            
             const response = await fetch(`${aiConfig.endpoint}/chat/completions`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${aiConfig.apiKey}`
                 },
-                body: JSON.stringify({
-                    model: aiConfig.model,
-                    messages: messages,
-                    max_tokens: 150,
-                    temperature: 0.1
-                })
+                body: JSON.stringify(requestBody)
             });
             
             if (!response.ok) {
