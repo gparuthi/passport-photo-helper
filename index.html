@@ -18,8 +18,7 @@
             user-select: none;
         }
 
-```
-    body {
+        body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
         background: #000;
         color: #fff;
@@ -473,8 +472,140 @@
             transition-duration: 0.01ms !important;
         }
     }
+
+    /* Settings Button */
+    .settings-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: 2px solid rgba(255,255,255,0.3);
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+        font-size: 24px;
+        cursor: pointer;
+        transition: all 0.2s;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .settings-btn:active {
+        transform: scale(0.9);
+        background: rgba(255,255,255,0.2);
+    }
+
+    /* Settings Modal */
+    .settings-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.95);
+        display: none;
+        z-index: 100;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .settings-modal.active {
+        display: block;
+    }
+
+    .settings-content {
+        padding: 80px 20px 40px;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    .settings-close {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 40px;
+        height: 40px;
+        background: rgba(255,255,255,0.1);
+        border: none;
+        border-radius: 50%;
+        color: #fff;
+        font-size: 24px;
+        cursor: pointer;
+        z-index: 101;
+    }
+
+    .settings-section {
+        margin-bottom: 30px;
+    }
+
+    .settings-section h3 {
+        font-size: 20px;
+        margin-bottom: 15px;
+        color: #007AFF;
+    }
+
+    .settings-label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 16px;
+        opacity: 0.9;
+    }
+
+    .settings-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid rgba(255,255,255,0.2);
+        border-radius: 12px;
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+        font-size: 16px;
+        transition: all 0.2s;
+    }
+
+    .settings-input:focus {
+        outline: none;
+        border-color: #007AFF;
+        background: rgba(255,255,255,0.15);
+    }
+
+    .settings-hint {
+        margin-top: 8px;
+        font-size: 14px;
+        opacity: 0.7;
+    }
+
+    .ai-status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+        background: #ff3b30;
+    }
+
+    .ai-status-indicator.active {
+        background: #4CD964;
+    }
+
+    /* AI Feedback Overlay */
+    .ai-feedback {
+        position: absolute;
+        top: 140px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.9);
+        padding: 16px 24px;
+        border-radius: 20px;
+        font-size: 15px;
+        max-width: 80%;
+        text-align: center;
+        transition: all 0.3s ease;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 15;
+    }
+
+    .ai-feedback.active {
+        opacity: 1;
+    }
 </style>
-```
 
 </head>
 <body>
@@ -487,13 +618,13 @@
         </button>
     </div>
 
-```
 <!-- Flash Effect -->
 <div class="flash" id="flash"></div>
 
 <!-- Header -->
 <div class="header">
     <div class="header-title">US Passport Photo</div>
+    <div id="aiStatus" style="font-size: 12px; opacity: 0.6; margin-top: 5px;"></div>
 </div>
 
 <!-- Position Status -->
@@ -511,7 +642,7 @@
 <div class="controls">
     <button class="help-btn" onclick="showHelp()" aria-label="Help">?</button>
     <button class="capture-btn" id="captureBtn" onclick="capturePhoto()" aria-label="Capture photo"></button>
-    <div style="width: 50px;"></div> <!-- Spacer for balance -->
+    <button class="settings-btn" onclick="showSettings()" aria-label="Settings">⚙️</button>
 </div>
 
 <!-- Help Overlay -->
@@ -529,7 +660,8 @@
             <p>1. <strong>Center your face</strong> in the square frame</p>
             <p>2. <strong>Align your eyes</strong> with the middle line</p>
             <p>3. <strong>Keep your head straight</strong> and look directly at camera</p>
-            <p>4. The status will turn <strong style="color: #4CD964;">green</strong> when positioned correctly</p>
+            <p>4. The AI will analyze your position and provide real-time feedback</p>
+            <p>5. Status turns <strong style="color: #4CD964;">green</strong> when photo is passport-compliant</p>
         </div>
 
         <div class="help-section">
@@ -549,7 +681,21 @@
             <p>• Stand about <strong>arm's length</strong> from camera</p>
             <p>• Photo will be cropped to <strong>2×2 inches</strong></p>
         </div>
+
+        <div class="help-section">
+            <h3>✨ AI-Powered Features</h3>
+            <p>• <strong>Real-time analysis</strong> every 3 seconds</p>
+            <p>• <strong>Instant feedback</strong> on photo compliance</p>
+            <p>• <strong>Smart suggestions</strong> for improvements</p>
+            <p>• <strong>Background check</strong> for plain white requirement</p>
+            <p>• <strong>Expression detection</strong> for neutral face</p>
+        </div>
     </div>
+</div>
+
+<!-- AI Feedback -->
+<div class="ai-feedback" id="aiFeedback">
+    <div id="aiFeedbackText"></div>
 </div>
 
 <!-- Preview Modal -->
@@ -571,14 +717,69 @@
 <div class="onboarding-overlay" id="onboardingOverlay">
     <div class="onboarding-content">
         <h2>👋 Welcome!</h2>
-        <p>Let's take your US passport photo in seconds.</p>
+        <p>Let's take your US passport photo in seconds with AI assistance.</p>
         <div class="onboarding-visual">
             <div class="sample-position" style="margin: 0 auto;">
                 <div class="sample-head"></div>
             </div>
         </div>
-        <p>Position your face within the guides and we'll capture a perfect 2×2 inch passport photo.</p>
+        <p>Position your face within the guides and our AI will help you capture a perfect 2×2 inch passport photo.</p>
         <button class="btn btn-primary" style="width: 100%;" onclick="startApp()">Get Started</button>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="settings-modal" id="settingsModal">
+    <button class="settings-close" onclick="hideSettings()" aria-label="Close settings">×</button>
+    <div class="settings-content">
+        <div class="settings-section">
+            <h3>🤖 AI Configuration</h3>
+            <label class="settings-label" for="apiEndpoint">API Endpoint</label>
+            <input 
+                type="url" 
+                id="apiEndpoint" 
+                class="settings-input" 
+                placeholder="https://api.openai.com/v1"
+                value="https://api.openai.com/v1"
+            >
+            <p class="settings-hint">Enter your OpenAI-compatible API endpoint</p>
+        </div>
+
+        <div class="settings-section">
+            <label class="settings-label" for="apiKey">API Key</label>
+            <input 
+                type="password" 
+                id="apiKey" 
+                class="settings-input" 
+                placeholder="sk-..."
+            >
+            <p class="settings-hint">Your API key is stored locally and never sent to our servers</p>
+        </div>
+
+        <div class="settings-section">
+            <label class="settings-label" for="aiModel">Model</label>
+            <input 
+                type="text" 
+                id="aiModel" 
+                class="settings-input" 
+                placeholder="gpt-4o-mini"
+                value="gpt-4o-mini"
+            >
+            <p class="settings-hint">Model name (e.g., gpt-4o-mini, gpt-4-turbo)</p>
+        </div>
+
+        <div class="settings-section">
+            <h3>📊 AI Status</h3>
+            <p style="font-size: 16px;">
+                <span class="ai-status-indicator" id="aiStatusIndicator"></span>
+                <span id="aiStatusText">Not configured</span>
+            </p>
+            <button class="btn btn-primary" style="margin-top: 15px;" onclick="testAIConnection()">Test Connection</button>
+        </div>
+
+        <div class="settings-section">
+            <button class="btn btn-primary" style="width: 100%;" onclick="saveSettings()">Save Settings</button>
+        </div>
     </div>
 </div>
 
@@ -924,6 +1125,11 @@
         const sizeMetrics = ctx.measureText(sizeLabel);
         ctx.fillText(sizeLabel, cropX + (cropSize - sizeMetrics.width) / 2, cropY - 10);
         
+        // Start AI monitoring if configured
+        if (aiConfig.apiKey && !aiMonitoringInterval) {
+            startAIMonitoring();
+        }
+        
         requestAnimationFrame(drawOverlay);
     }
 
@@ -991,8 +1197,10 @@
                 captureBtn.classList.remove('capturing');
                 flash.classList.remove('active');
                 
-                // TODO: Future AI integration point
-                // analyzePhotoWithAI(blob);
+                // AI analysis if configured
+                if (aiConfig.apiKey) {
+                    analyzePhotoWithAI(blob);
+                }
             }, 'image/jpeg', 0.95);
         }, 200);
     }
@@ -1031,20 +1239,353 @@
         }, 2000);
     }
 
-    // AI Integration Placeholder (TODO)
-    function analyzePhotoWithAI(photoBlob) {
-        // Future implementation:
-        // 1. Convert blob to base64
-        // 2. Send to AI API (OpenAI Vision, Claude, etc.)
-        // 3. Display AI feedback
-        // 4. Provide suggestions for improvement
+    // AI Configuration
+    let aiConfig = {
+        endpoint: localStorage.getItem('aiEndpoint') || 'https://api.openai.com/v1',
+        apiKey: localStorage.getItem('aiApiKey') || '',
+        model: localStorage.getItem('aiModel') || 'gpt-4o-mini'
+    };
+    let aiMonitoringInterval = null;
+
+    // Settings Modal Functions
+    function showSettings() {
+        document.getElementById('settingsModal').classList.add('active');
+        // Load current settings
+        document.getElementById('apiEndpoint').value = aiConfig.endpoint;
+        document.getElementById('apiKey').value = aiConfig.apiKey;
+        document.getElementById('aiModel').value = aiConfig.model;
+        updateAIStatus();
+    }
+
+    function hideSettings() {
+        document.getElementById('settingsModal').classList.remove('active');
+    }
+
+    function saveSettings() {
+        aiConfig.endpoint = document.getElementById('apiEndpoint').value;
+        aiConfig.apiKey = document.getElementById('apiKey').value;
+        aiConfig.model = document.getElementById('aiModel').value;
         
-        console.log('AI analysis will be implemented in future version');
+        // Save to localStorage
+        localStorage.setItem('aiEndpoint', aiConfig.endpoint);
+        localStorage.setItem('aiApiKey', aiConfig.apiKey);
+        localStorage.setItem('aiModel', aiConfig.model);
+        
+        updateAIStatus();
+        hideSettings();
+        
+        // Start AI monitoring if configured
+        if (aiConfig.apiKey) {
+            startAIMonitoring();
+        }
+    }
+
+    function updateAIStatus() {
+        const aiStatus = document.getElementById('aiStatus');
+        const aiStatusText = document.getElementById('aiStatusText');
+        const aiStatusIndicator = document.getElementById('aiStatusIndicator');
+        
+        if (aiConfig.apiKey) {
+            aiStatus.textContent = '✨ AI-Powered Analysis Active';
+            aiStatusText.textContent = 'Configured';
+            aiStatusIndicator.classList.add('active');
+        } else {
+            aiStatus.textContent = 'Configure AI in Settings';
+            aiStatusText.textContent = 'Not configured';
+            aiStatusIndicator.classList.remove('active');
+        }
+    }
+
+    async function testAIConnection() {
+        const statusText = document.getElementById('aiStatusText');
+        const statusIndicator = document.getElementById('aiStatusIndicator');
+        
+        // Get the current value from the input field
+        const currentApiKey = document.getElementById('apiKey').value;
+        const currentEndpoint = document.getElementById('apiEndpoint').value;
+        const currentModel = document.getElementById('aiModel').value;
+        
+        if (!currentApiKey) {
+            alert('Please enter an API key first');
+            return;
+        }
+        
+        statusText.textContent = 'Testing connection...';
+        
+        try {
+            const response = await fetch(`${currentEndpoint}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentApiKey}`
+                },
+                body: JSON.stringify({
+                    model: currentModel,
+                    messages: [{role: 'user', content: 'test'}],
+                    max_tokens: 5
+                })
+            });
+            
+            if (response.ok) {
+                statusText.textContent = 'Connected successfully!';
+                statusIndicator.classList.add('active');
+                setTimeout(() => {
+                    statusText.textContent = 'Configured';
+                }, 2000);
+            } else {
+                const error = await response.json();
+                statusText.textContent = 'Connection failed';
+                statusIndicator.classList.remove('active');
+                alert(`Connection failed: ${error.error?.message || 'Unknown error'}`);
+            }
+        } catch (error) {
+            statusText.textContent = 'Connection failed';
+            statusIndicator.classList.remove('active');
+            alert(`Connection error: ${error.message}`);
+        }
+    }
+
+    // AI Integration
+    let isAnalyzing = false;
+    let lastAnalysisTime = 0;
+    const ANALYSIS_INTERVAL = 3000; // Analyze every 3 seconds
+
+    async function analyzePhotoWithAI(photoBlob, isLiveAnalysis = false) {
+        if (isAnalyzing) return;
+        if (!aiConfig.apiKey) return;
+        
+        isAnalyzing = true;
+
+        try {
+            // Convert blob to base64
+            const base64 = await blobToBase64(photoBlob);
+            
+            // Show analyzing status only for captured photos
+            if (!isLiveAnalysis) {
+                const status = document.getElementById('positionStatus');
+                status.textContent = 'AI analyzing photo...';
+                status.className = 'position-status adjust';
+            }
+
+            // Use OpenAI Vision API to analyze the photo
+            const messages = [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            text: `You are a passport photo analyzer. Analyze this photo for US passport photo compliance.
+
+Check for:
+1. Face position and centering
+2. Background (must be plain white/off-white)
+3. Expression (must be neutral)
+4. Eyes (both visible, no glare on glasses)
+5. Lighting (even, no shadows)
+6. Overall passport photo compliance
+
+IMPORTANT: You MUST respond with ONLY a JSON object, no other text. Do not include markdown formatting or code blocks.
+
+Return this exact JSON structure:
+{
+    "isCompliant": true or false,
+    "status": "Good to go!" or "Needs adjustment",
+    "mainIssue": "Brief main issue" or "None",
+    "quickTips": ["Tip 1", "Tip 2"]
+}
+
+Rules:
+- isCompliant: true if photo meets all requirements, false otherwise
+- status: "Good to go!" if compliant, "Needs adjustment" if not
+- mainIssue: The most important issue or "None" if compliant
+- quickTips: Array of 0-2 brief action items (empty array if compliant)
+
+Respond with valid JSON only. No explanations or other text.`
+                        },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: base64
+                            }
+                        }
+                    ]
+                }
+            ];
+
+            const response = await fetch(`${aiConfig.endpoint}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${aiConfig.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: aiConfig.model,
+                    messages: messages,
+                    max_tokens: 150,
+                    temperature: 0.1
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            const content = result.choices[0]?.message?.content;
+            
+            try {
+                // Clean response and parse
+                let cleanResponse = content.trim();
+                
+                // Check if response is an error message instead of JSON
+                if (!cleanResponse.startsWith('{') && !cleanResponse.includes('```')) {
+                    console.warn('AI returned non-JSON response:', cleanResponse);
+                    if (!isLiveAnalysis) {
+                        const status = document.getElementById('positionStatus');
+                        status.textContent = 'AI analysis unavailable';
+                        status.className = 'position-status adjust';
+                    }
+                    return;
+                }
+                
+                // Remove markdown code blocks if present
+                if (cleanResponse.startsWith('```json')) {
+                    cleanResponse = cleanResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+                } else if (cleanResponse.startsWith('```')) {
+                    cleanResponse = cleanResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+                }
+                
+                const analysis = JSON.parse(cleanResponse.trim());
+                displayAIFeedback(analysis, isLiveAnalysis);
+            } catch (parseError) {
+                console.error('Failed to parse AI response:', parseError, 'Response:', content);
+                if (!isLiveAnalysis) {
+                    const status = document.getElementById('positionStatus');
+                    status.textContent = 'Ready to capture';
+                    status.className = 'position-status adjust';
+                }
+            }
+
+        } catch (error) {
+            console.error('AI analysis error:', error);
+            if (!isLiveAnalysis) {
+                const status = document.getElementById('positionStatus');
+                status.textContent = 'Ready to capture';
+                status.className = 'position-status adjust';
+            }
+        } finally {
+            isAnalyzing = false;
+        }
+    }
+
+    // Convert blob to base64
+    function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    // Display AI feedback
+    function displayAIFeedback(analysis, isLiveAnalysis = false) {
+        const status = document.getElementById('positionStatus');
+        const feedbackEl = document.getElementById('aiFeedback');
+        const feedbackText = document.getElementById('aiFeedbackText');
+
+        // Update status indicator
+        status.textContent = analysis.status;
+        status.className = analysis.isCompliant ? 'position-status good' : 'position-status adjust';
+
+        // Show detailed feedback if there are issues
+        if (!analysis.isCompliant && analysis.quickTips && analysis.quickTips.length > 0) {
+            feedbackText.innerHTML = `
+                <strong>${analysis.mainIssue}</strong><br>
+                ${analysis.quickTips.map(tip => `• ${tip}`).join('<br>')}
+            `;
+            feedbackEl.classList.add('active');
+
+            // Hide after 5 seconds for live analysis, longer for captured photos
+            setTimeout(() => {
+                feedbackEl.classList.remove('active');
+            }, isLiveAnalysis ? 5000 : 8000);
+        } else if (analysis.isCompliant && !isLiveAnalysis) {
+            // Show success for captured photos
+            feedbackText.innerHTML = `<strong>✅ Perfect passport photo!</strong>`;
+            feedbackEl.classList.add('active');
+            setTimeout(() => {
+                feedbackEl.classList.remove('active');
+            }, 3000);
+        }
+    }
+
+    // Continuous AI monitoring
+    function startAIMonitoring() {
+        if (!aiConfig.apiKey) return;
+        
+        // Clear existing interval if any
+        if (aiMonitoringInterval) {
+            clearInterval(aiMonitoringInterval);
+        }
+        
+        // Set up monitoring interval
+        aiMonitoringInterval = setInterval(async () => {
+            if (!video.srcObject || isAnalyzing) return;
+            
+            const now = Date.now();
+            if (now - lastAnalysisTime < ANALYSIS_INTERVAL) {
+                return; // Don't analyze too frequently
+            }
+            
+            lastAnalysisTime = now;
+            
+            // Capture current frame
+            const tempCanvas = document.createElement('canvas');
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
+            
+            if (!videoWidth || !videoHeight) return;
+            
+            // Use same crop logic as capture
+            const size = Math.min(videoWidth, videoHeight) * 0.7;
+            const startX = (videoWidth - size) / 2;
+            const startY = (videoHeight - size) / 2;
+            
+            tempCanvas.width = 300; // Smaller size for analysis
+            tempCanvas.height = 300;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Fill with white background
+            tempCtx.fillStyle = '#FFFFFF';
+            tempCtx.fillRect(0, 0, 300, 300);
+            
+            // Draw cropped frame
+            tempCtx.save();
+            tempCtx.scale(-1, 1);
+            tempCtx.drawImage(
+                video, 
+                startX, startY, size, size,
+                -300, 0, 300, 300
+            );
+            tempCtx.restore();
+            
+            // Convert to blob and analyze
+            tempCanvas.toBlob((blob) => {
+                if (blob) {
+                    analyzePhotoWithAI(blob, true);
+                }
+            }, 'image/jpeg', 0.8);
+        }, ANALYSIS_INTERVAL);
     }
 
     // Initialize app
     window.addEventListener('load', () => {
         console.log('App loaded, checking first time...');
+        
+        // Check AI availability
+        updateAIStatus();
+        
         checkFirstTime();
         
         // Show skip button after 3 seconds if still loading
@@ -1088,7 +1629,5 @@
         console.error('Unhandled promise rejection:', e.reason);
     });
 </script>
-```
-
 </body>
 </html>
